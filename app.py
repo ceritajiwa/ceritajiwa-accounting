@@ -805,7 +805,10 @@ def page_dashboard():
     with col1: st.markdown(f'<div class=\"metric-card\"><div class=\"metric-label\">Pendapatan {get_month_name(current_month)}</div><div class=\"metric-value\">{format_rupiah(pendapatan)}</div></div>', unsafe_allow_html=True)
     with col2: st.markdown(f'<div class=\"metric-card\"><div class=\"metric-label\">Beban {get_month_name(current_month)}</div><div class=\"metric-value\">{format_rupiah(beban)}</div></div>', unsafe_allow_html=True)
     with col3: st.markdown(f'<div class=\"metric-card\"><div class=\"metric-label\">Laba/Rugi {get_month_name(current_month)}</div><div class=\"metric-value\">{format_rupiah(pendapatan - beban)}</div></div>', unsafe_allow_html=True)
-    with col4: st.markdown(f'<div class=\"metric-card\"><div class=\"metric-label\">Invoice Belum Dibayar</div><div class=\"metric-value\">{format_rupiah(unpaid_invoices.iloc[0][\"total\"] or 0)}</div><div style=\"font-size: 0.8rem; color: #6D6F71;\">{unpaid_invoices.iloc[0][\"count\"] or 0} invoice</div></div>', unsafe_allow_html=True)
+    with col4: 
+    total_unpaid = unpaid_invoices.iloc[0]['total'] or 0
+    count_unpaid = unpaid_invoices.iloc[0]['count'] or 0
+    st.markdown(f'<div class="metric-card"><div class="metric-label">Invoice Belum Dibayar</div><div class="metric-value">{format_rupiah(total_unpaid)}</div><div style="font-size: 0.8rem; color: #6D6F71;">{count_unpaid} invoice</div></div>', unsafe_allow_html=True)
     
     st.markdown("---")
     col1, col2 = st.columns(2)
