@@ -802,9 +802,9 @@ def page_dashboard():
         WHERE is_paid = 0 AND status != 'cancelled'
     """, conn)
     
-    with col1: st.markdown(f'<div class=\"metric-card\"><div class=\"metric-label\">Pendapatan {get_month_name(current_month)}</div><div class=\"metric-value\">{format_rupiah(pendapatan)}</div></div>', unsafe_allow_html=True)
-    with col2: st.markdown(f'<div class=\"metric-card\"><div class=\"metric-label\">Beban {get_month_name(current_month)}</div><div class=\"metric-value\">{format_rupiah(beban)}</div></div>', unsafe_allow_html=True)
-    with col3: st.markdown(f'<div class=\"metric-card\"><div class=\"metric-label\">Laba/Rugi {get_month_name(current_month)}</div><div class=\"metric-value\">{format_rupiah(pendapatan - beban)}</div></div>', unsafe_allow_html=True)
+    with col1: st.markdown(f'<div class="metric-card"><div class=\"metric-label\">Pendapatan {get_month_name(current_month)}</div><div class=\"metric-value\">{format_rupiah(pendapatan)}</div></div>', unsafe_allow_html=True)
+    with col2: st.markdown(f'<div class="metric-card"><div class=\"metric-label\">Beban {get_month_name(current_month)}</div><div class=\"metric-value\">{format_rupiah(beban)}</div></div>', unsafe_allow_html=True)
+    with col3: st.markdown(f'<div class="metric-card"><div class=\"metric-label\">Laba/Rugi {get_month_name(current_month)}</div><div class=\"metric-value\">{format_rupiah(pendapatan - beban)}</div></div>', unsafe_allow_html=True)
     with col4: 
     total_unpaid = unpaid_invoices.iloc[0]['total'] or 0
     count_unpaid = unpaid_invoices.iloc[0]['count'] or 0
@@ -1269,9 +1269,9 @@ def page_laporan_pajak():
     report = generate_tax_report(tahun, bulan)
     st.markdown("---"); st.subheader(f"Ringkasan Pajak - {report['periode']}")
     col1, col2, col3 = st.columns(3)
-    with col1: st.markdown(f'<div class=\"metric-card\"><div class=\"metric-label\">Total Pendapatan</div><div class=\"metric-value\">{format_rupiah(report["total_pendapatan"])}</div></div>', unsafe_allow_html=True)
-    with col2: st.markdown(f'<div class=\"metric-card\"><div class=\"metric-label\">Total Beban</div><div class=\"metric-value\">{format_rupiah(report["total_beban"])}</div></div>', unsafe_allow_html=True)
-    with col3: st.markdown(f'<div class=\"metric-card\"><div class=\"metric-label\">Laba/Rugi</div><div class=\"metric-value\">{format_rupiah(report["laba_rugi"])}</div></div>', unsafe_allow_html=True)
+    with col1: st.markdown(f'<div class="metric-card"><div class=\"metric-label\">Total Pendapatan</div><div class=\"metric-value\">{format_rupiah(report["total_pendapatan"])}</div></div>', unsafe_allow_html=True)
+    with col2: st.markdown(f'<div class="metric-card"><div class=\"metric-label\">Total Beban</div><div class=\"metric-value\">{format_rupiah(report["total_beban"])}</div></div>', unsafe_allow_html=True)
+    with col3: st.markdown(f'<div class="metric-card"><div class=\"metric-label\">Laba/Rugi</div><div class=\"metric-value\">{format_rupiah(report["laba_rugi"])}</div></div>', unsafe_allow_html=True)
     st.markdown("---"); st.subheader("Estimasi Pajak Terutang")
     tax_data = [
         ['PPh 21 (estimasi 5%)', format_rupiah(report['pph_21'])],
