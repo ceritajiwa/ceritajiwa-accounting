@@ -194,6 +194,9 @@ def repair_account_parents(cursor):
         '5-1600':'5-1000','5-1700':'5-1000','5-1800':'5-1000','5-1900':'5-1000','5-2000':'5-1000','5-2100':'5-1000',
         '1-1105':'1-1200','1-1106':'1-1200','1-2400':'1-2000','1-2401':'1-2000','1-2500':'1-2000','1-2600':'1-2000',
         '1-2610':'1-2000','2-1600':'2-1000','2-1700':'2-1000','2-2100':'2-2000','3-1500':'3-1000','3-1600':'3-1000',
+        '4-1500':'4-1000','4-1600':'4-1000',
+        '5-2200':'5-1000','5-2300':'5-1000','5-2400':'5-1000','5-2500':'5-1000','5-2600':'5-1000',
+        '5-2700':'5-1000','5-2800':'5-1000','5-2900':'5-1000',
     }
     for child, parent in fix_map.items():
         cursor.execute("UPDATE akun a SET parent_id = p.id FROM akun p WHERE a.kode_akun = %s AND p.kode_akun = %s", (child, parent))
@@ -322,7 +325,17 @@ def ai_journal_assistant(deskripsi, nilai_rupiah=None):
                 {'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah},
             ]
     elif any(w in deskripsi_lower for w in ['jual','penjualan','terima']):
-        if any(w in deskripsi_lower for w in ['training','pelatihan']):
+        if any(w in deskripsi_lower for w in ['sertifikasi','sertifikat']):
+            jurnal_entries = [
+                {'akun':'Bank BCA','debit':nilai_rupiah,'kredit':0},
+                {'akun':'Pendapatan Sertifikasi','debit':0,'kredit':nilai_rupiah},
+            ]
+        elif any(w in deskripsi_lower for w in ['asesmen','asesor','asesi']):
+            jurnal_entries = [
+                {'akun':'Bank BCA','debit':nilai_rupiah,'kredit':0},
+                {'akun':'Pendapatan Asesmen','debit':0,'kredit':nilai_rupiah},
+            ]
+        elif any(w in deskripsi_lower for w in ['training','pelatihan']):
             jurnal_entries = [
                 {'akun':'Bank BCA','debit':nilai_rupiah,'kredit':0},
                 {'akun':'Pendapatan Training','debit':0,'kredit':nilai_rupiah},
@@ -343,16 +356,27 @@ def ai_journal_assistant(deskripsi, nilai_rupiah=None):
                 {'akun':'Pendapatan Lain-lain','debit':0,'kredit':nilai_rupiah},
             ]
     elif any(w in deskripsi_lower for w in ['bayar','pembayaran','dibayar']):
-        if any(w in deskripsi_lower for w in ['gaji','honor']):
-            jurnal_entries = [{'akun':'Beban Gaji','debit':nilai_rupiah,'kredit':0},{'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah}]
+        if any(w in deskripsi_lower for w in ['trainer','instruktur','narasumber','fasilitator']):
+            jurnal_entries = [{'akun':'Biaya Trainer','debit':nilai_rupiah,'kredit':0},{'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah}]
+        elif any(w in deskripsi_lower for w in ['gaji','honor']):
+            jurnal_entries = [{'akun':'Biaya Gaji Karyawan','debit':nilai_rupiah,'kredit':0},{'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah}]
         elif any(w in deskripsi_lower for w in ['sewa','kontrakan','ruko','kantor']):
             jurnal_entries = [{'akun':'Beban Sewa','debit':nilai_rupiah,'kredit':0},{'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah}]
-        elif any(w in deskripsi_lower for w in ['listrik','air','pln','pdam']):
-            jurnal_entries = [{'akun':'Beban Listrik & Air','debit':nilai_rupiah,'kredit':0},{'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah}]
+        elif any(w in deskripsi_lower for w in ['listrik','air','pln','pdam','ipl']):
+            akun_listrik = 'Biaya Listrik & IPL' if 'ipl' in deskripsi_lower else 'Beban Listrik & Air'
+            jurnal_entries = [{'akun':akun_listrik,'debit':nilai_rupiah,'kredit':0},{'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah}]
         elif any(w in deskripsi_lower for w in ['internet','telepon','hp','pulsa','wifi']):
             jurnal_entries = [{'akun':'Beban Internet & Telepon','debit':nilai_rupiah,'kredit':0},{'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah}]
-        elif any(w in deskripsi_lower for w in ['iklan','promosi','marketing','ads']):
-            jurnal_entries = [{'akun':'Beban Pemasaran','debit':nilai_rupiah,'kredit':0},{'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah}]
+        elif any(w in deskripsi_lower for w in ['iklan','promosi','marketing','ads','sales']):
+            jurnal_entries = [{'akun':'Biaya Sales & Marketing','debit':nilai_rupiah,'kredit':0},{'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah}]
+        elif any(w in deskripsi_lower for w in ['operasional','kebersihan','atk','cetak','print']):
+            jurnal_entries = [{'akun':'Biaya Operasional','debit':nilai_rupiah,'kredit':0},{'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah}]
+        elif any(w in deskripsi_lower for w in ['biaya training','biaya pelatihan','modul','materi']):
+            jurnal_entries = [{'akun':'Biaya Training','debit':nilai_rupiah,'kredit':0},{'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah}]
+        elif any(w in deskripsi_lower for w in ['transport','akomodasi','hotel','tol','bensin','parkir','taksi']):
+            jurnal_entries = [{'akun':'Biaya Transport & Akomodasi','debit':nilai_rupiah,'kredit':0},{'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah}]
+        elif any(w in deskripsi_lower for w in ['subscription','langganan','zoom','canva','software','hosting','domain']):
+            jurnal_entries = [{'akun':'Biaya Subscription','debit':nilai_rupiah,'kredit':0},{'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah}]
         elif any(w in deskripsi_lower for w in ['pajak','spt','pph','ppn']):
             jurnal_entries = [{'akun':'Beban Pajak','debit':nilai_rupiah,'kredit':0},{'akun':'Bank BCA','debit':0,'kredit':nilai_rupiah}]
         elif any(w in deskripsi_lower for w in ['cicilan','angsuran','kredit']):
@@ -1889,6 +1913,16 @@ EXTRA_ACCOUNTS = [
     ('2-2100','Hutang Jangka Panjang','Kewajiban','kredit','2-2000'),
     ('3-1500','Modal Awal','Ekuitas','kredit','3-1000'),
     ('3-1600','Dividen','Ekuitas','debit','3-1000'),
+    ('4-1500','Pendapatan Sertifikasi','Pendapatan','kredit','4-1000'),
+    ('4-1600','Pendapatan Asesmen','Pendapatan','kredit','4-1000'),
+    ('5-2200','Biaya Trainer','Beban','debit','5-1000'),
+    ('5-2300','Biaya Sales & Marketing','Beban','debit','5-1000'),
+    ('5-2400','Biaya Operasional','Beban','debit','5-1000'),
+    ('5-2500','Biaya Training','Beban','debit','5-1000'),
+    ('5-2600','Biaya Transport & Akomodasi','Beban','debit','5-1000'),
+    ('5-2700','Biaya Subscription','Beban','debit','5-1000'),
+    ('5-2800','Biaya Listrik & IPL','Beban','debit','5-1000'),
+    ('5-2900','Biaya Gaji Karyawan','Beban','debit','5-1000'),
 ]
 
 def ensure_extra_accounts(cursor):
