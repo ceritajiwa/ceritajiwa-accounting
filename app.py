@@ -1003,7 +1003,13 @@ def page_chart_of_accounts():
     st.markdown('<p class="sub-header">Kelola akun-akun pembukuan</p>', unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["📋 Lihat Daftar Akun", "➕ Tambah Akun Baru"])
     with tab1:
-        df = get_all_accounts()
+        try:
+            df = get_all_accounts()
+        except Exception as e:
+            st.error("Gagal membaca data akun dari database:")
+            st.code(str(e))
+            df = pd.DataFrame()
+        st.info(f"DEBUG: terbaca {len(df)} akun dari database (seharusnya 67). Screenshot baris ini kalau angkanya 0 atau ada error.")
         if not df.empty:
             st.dataframe(df[['kode_akun','nama_akun','tipe_akun','saldo_normal','parent_name']], use_container_width=True, hide_index=True,
                 column_config={'kode_akun':'Kode Akun','nama_akun':'Nama Akun','tipe_akun':'Tipe','saldo_normal':'Saldo Normal','parent_name':'Induk'})
