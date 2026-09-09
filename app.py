@@ -123,6 +123,7 @@ def init_database():
     cursor.execute("SELECT COUNT(*) as cnt FROM akun")
     if cursor.fetchone()['cnt'] == 0:
         insert_default_accounts(cursor)
+    ensure_extra_accounts(cursor)
     cursor.execute("SELECT COUNT(*) as cnt FROM pajak_config")
     if cursor.fetchone()['cnt'] == 0:
         cursor.execute("""
@@ -191,6 +192,8 @@ def repair_account_parents(cursor):
         '4-1100':'4-1000','4-1200':'4-1000','4-1300':'4-1000','4-1400':'4-1000',
         '5-1100':'5-1000','5-1200':'5-1000','5-1300':'5-1000','5-1400':'5-1000','5-1500':'5-1000',
         '5-1600':'5-1000','5-1700':'5-1000','5-1800':'5-1000','5-1900':'5-1000','5-2000':'5-1000','5-2100':'5-1000',
+        '1-1105':'1-1200','1-1106':'1-1200','1-2400':'1-2000','1-2401':'1-2000','1-2500':'1-2000','1-2600':'1-2000',
+        '1-2610':'1-2000','2-1600':'2-1000','2-1700':'2-1000','2-2100':'2-2000','3-1500':'3-1000','3-1600':'3-1000',
     }
     for child, parent in fix_map.items():
         cursor.execute("UPDATE akun a SET parent_id = p.id FROM akun p WHERE a.kode_akun = %s AND p.kode_akun = %s", (child, parent))
@@ -212,6 +215,10 @@ def safe_float(value):
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+def numcol(series):
+    """Kolom angka aman dari database: tahan string/Decimal/Arrow manapun."""
+    return pd.to_numeric(series, errors='coerce').fillna(0.0).astype(float)
 
 def safe_index(options, value):
     try: return options.index(value)
@@ -414,8 +421,8 @@ def get_neraca(tahun=None, bulan=None):
     """
     df = pd.read_sql_query(query, conn, params=params)
     conn.close()
-    df['total_debit'] = df['total_debit'].astype(float)
-    df['total_kredit'] = df['total_kredit'].astype(float)
+    df['total_debit'] = numcol(df['total_debit'])
+    df['total_kredit'] = numcol(df['total_kredit'])
     def calc_balance(row):
         if row['saldo_normal'] == 'debit':
             return row['total_debit'] - row['total_kredit']
@@ -440,15 +447,15 @@ def get_laba_rugi(tahun=None, bulan=None):
         COALESCE(SUM(CASE WHEN jd.kredit > 0 THEN jd.kredit ELSE 0 END), 0) as total_kredit
     FROM akun a
     LEFT JOIN jurnal_detail jd ON a.id = jd.akun_id
-    LEFT JOIN jurnal j ON jd.jurnal_id = j.id AND j.is_posted = 1 {date_filter}
+    LEFT JOIN jurnal j ON jd.jurnal_id = j.id AND j.is_posted = 1 AND j.no_bukti NOT LIKE 'CLS-%' {date_filter}
     WHERE a.is_active = 1 AND a.tipe_akun IN ('Pendapatan','Beban')
     GROUP BY a.id, a.kode_akun, a.nama_akun, a.tipe_akun
     ORDER BY a.kode_akun
     """
     df = pd.read_sql_query(query, conn, params=params)
     conn.close()
-    df['total_debit'] = df['total_debit'].astype(float)
-    df['total_kredit'] = df['total_kredit'].astype(float)
+    df['total_debit'] = numcol(df['total_debit'])
+    df['total_kredit'] = numcol(df['total_kredit'])
     def calc_balance(row):
         if row['tipe_akun'] == 'Pendapatan':
             return row['total_kredit'] - row['total_debit']
@@ -478,8 +485,8 @@ def get_buku_besar(akun_id, tahun=None, bulan=None):
     akun_info = pd.read_sql_query("SELECT * FROM akun WHERE id = %s", conn, params=(akun_id,))
     conn.close()
     if not df.empty:
-        df['debit'] = df['debit'].astype(float)
-        df['kredit'] = df['kredit'].astype(float)
+        df['debit'] = numcol(df['debit'])
+        df['kredit'] = numcol(df['kredit'])
     if not df.empty and not akun_info.empty:
         saldo_normal = akun_info.iloc[0]['saldo_normal']
         balance = 0
@@ -768,19 +775,19 @@ def generate_tax_report(tahun, bulan=None):
         SELECT COALESCE(SUM(jd.kredit), 0) as total
         FROM jurnal_detail jd JOIN jurnal j ON jd.jurnal_id = j.id
         JOIN akun a ON jd.akun_id = a.id
-        {date_filter} AND a.tipe_akun = 'Pendapatan' AND j.is_posted = 1
+        {date_filter} AND a.tipe_akun = 'Pendapatan' AND j.is_posted = 1 AND j.no_bukti NOT LIKE 'CLS-%'
     """
     beban_query = f"""
         SELECT a.nama_akun, COALESCE(SUM(jd.debit), 0) as total
         FROM jurnal_detail jd JOIN jurnal j ON jd.jurnal_id = j.id
         JOIN akun a ON jd.akun_id = a.id
-        {date_filter} AND a.tipe_akun = 'Beban' AND j.is_posted = 1
+        {date_filter} AND a.tipe_akun = 'Beban' AND j.is_posted = 1 AND j.no_bukti NOT LIKE 'CLS-%'
         GROUP BY a.id, a.nama_akun
     """
     total_pendapatan = safe_float(pd.read_sql_query(pendapatan_query, conn, params=params).iloc[0]['total'])
     beban_df = pd.read_sql_query(beban_query, conn, params=params)
     if not beban_df.empty:
-        beban_df['total'] = beban_df['total'].astype(float)
+        beban_df['total'] = numcol(beban_df['total'])
     total_beban = float(beban_df['total'].sum()) if not beban_df.empty else 0.0
     conn.close()
     laba_rugi = total_pendapatan - total_beban
@@ -841,6 +848,15 @@ def generate_tax_pdf(tahun, bulan=None):
 # STREAMLIT UI
 # ============================================================
 
+def safe_page(func):
+    """Jalankan halaman; kalau error, tampilkan pesan aslinya (tidak disembunyikan Streamlit)."""
+    try:
+        func()
+    except Exception as e:
+        st.error("Terjadi error pada halaman ini:")
+        st.code(str(e))
+        st.caption("Screenshot kotak di atas dan kirimkan ke developer untuk diperbaiki.")
+
 def set_page_config():
     st.set_page_config(page_title="Cerita Jiwa - Pembukuan", page_icon="📚", layout="wide", initial_sidebar_state="expanded")
 
@@ -872,7 +888,7 @@ def render_sidebar():
             st.markdown("<div style='text-align: center; padding: 20px 0;'><h2 style='color: #344A61; margin: 0;'>CERITA JIWA</h2></div>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: #6D6F71; font-size: 0.85rem; margin-top: -10px;'>Sistem Pembukuan Internal</p>", unsafe_allow_html=True)
         st.markdown("---")
-        menu = st.radio("Menu", ["🏠 Dashboard","📋 Daftar Akun","🤖 AI Jurnal Assistant","🏦 Rekening Koran AI","📝 Jurnal Umum","📖 Buku Besar","📄 Invoice","📊 Laporan Keuangan","💰 Laporan Pajak","🔒 Tutup Buku","⚙️ Pengaturan"], label_visibility="collapsed")
+        menu = st.radio("Menu", ["🏠 Dashboard","📋 Daftar Akun","🤖 AI Jurnal Assistant","🏦 Rekening Koran AI","📝 Jurnal Umum","📖 Buku Besar","📄 Invoice","📊 Laporan Keuangan","💰 Laporan Pajak","⚙️ Pengaturan"], label_visibility="collapsed")
         st.markdown("---")
         st.markdown("<div style='text-align: center; padding: 10px; background: #E8EAEC; border-radius: 8px;'><p style='margin: 0; font-size: 0.8rem; color: #344A61;'><b>Cerita Jiwa</b><br>Training & Produk Digital</p></div>", unsafe_allow_html=True)
         return menu
@@ -936,7 +952,7 @@ def page_dashboard():
             GROUP BY a.id, a.nama_akun HAVING SUM(jd.debit) > 0
         """, conn, params=[f"{current_year}-{current_month:02d}"])
         if not beban_data.empty:
-            beban_data['total'] = beban_data['total'].astype(float)
+            beban_data['total'] = numcol(beban_data['total'])
             st.bar_chart(beban_data.set_index('nama_akun'))
         else: st.info("Belum ada data beban bulan ini")
     
@@ -1177,6 +1193,53 @@ def classify_bank_row(berita, debit, kredit, bank_default='Bank BCA'):
         if e['akun'] == 'Bank BCA': e['akun'] = bank_default
     return entries
 
+PDF_DATE_RE = re.compile(r'(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})')
+
+def parse_pdf_statement(uploaded, bank_name):
+    """Baca e-statement PDF bank: cari tanggal, berita, dan angka mutasi per baris."""
+    try:
+        import pdfplumber
+    except ImportError:
+        return None, "Library 'pdfplumber' belum terinstall. Tambahkan pdfplumber di requirements.txt lalu reboot app."
+    lines = []
+    try:
+        with pdfplumber.open(uploaded) as pdf:
+            for page in pdf.pages:
+                txt = page.extract_text() or ''
+                lines.extend(txt.split('\n'))
+    except Exception as e:
+        return None, f"Gagal membaca PDF: {e}"
+    rows = []
+    prev_saldo = None
+    for line in lines:
+        m = PDF_DATE_RE.search(line)
+        if not m: continue
+        tgl = pd.to_datetime(m.group(1), dayfirst=True, errors='coerce')
+        if pd.isna(tgl): continue
+        cleaned = (line[:m.start()] + ' ' + line[m.end():]).strip()
+        nums = re.findall(r'\d[\d\.,]*', cleaned)
+        amounts = []
+        for x in nums:
+            v = abs(parse_amount_idr(x))
+            if v > 0: amounts.append(v)
+        if not amounts: continue
+        mutasi = amounts[-2] if len(amounts) >= 2 else amounts[-1]
+        saldo = amounts[-1]
+        up = cleaned.upper()
+        if ' CR' in up or 'KREDIT' in up or 'MASUK' in up:
+            deb, kre = 0.0, mutasi
+        elif ' DB' in up or 'DEBET' in up or 'DEBIT' in up or 'KELUAR' in up:
+            deb, kre = mutasi, 0.0
+        elif prev_saldo is not None and abs((prev_saldo + mutasi) - saldo) < 2.0:
+            deb, kre = 0.0, mutasi
+        else:
+            deb, kre = mutasi, 0.0
+        prev_saldo = saldo
+        berita = re.sub(r'\s+', ' ', cleaned)
+        entries = classify_bank_row(berita, deb, kre, bank_name)
+        rows.append({'tanggal': tgl.date(), 'berita': berita, 'debit': deb, 'kredit': kre, 'entries': entries})
+    return rows, None
+
 def page_rekening_koran():
     st.markdown('<p class="main-header">Rekening Koran AI</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-header">Upload e-statement bank — AI menjurnal otomatis per transaksi sesuai tanggal & berita</p>', unsafe_allow_html=True)
@@ -1186,64 +1249,75 @@ def page_rekening_koran():
     bank_default = st.selectbox("Akun bank untuk transaksi ini", bank_options, index=0)
     bank_name = bank_default.split(" - ")[1]
 
-    uploaded = st.file_uploader("Upload e-statement (CSV atau Excel dari e-banking)", type=['csv','xlsx','xls'])
+    uploaded = st.file_uploader("Upload e-statement bank (CSV, Excel, atau PDF)", type=['csv','xlsx','xls','pdf'])
     if not uploaded:
         st.info("Tips: download e-statement dari e-banking / m-banking (format CSV atau Excel), lalu upload di sini.")
         return
-    try:
-        if uploaded.name.lower().endswith('.csv'):
-            raw = pd.read_csv(uploaded)
-        else:
-            raw = pd.read_excel(uploaded)
-    except Exception as e:
-        st.error(f"Gagal membaca file: {e}"); return
-    raw = raw.dropna(how='all').dropna(axis=1, how='all')
-    if raw.empty:
-        st.error("File kosong atau format tidak dikenali."); return
-    st.success(f"File terbaca: {len(raw)} baris x {len(raw.columns)} kolom")
-    with st.expander("Lihat isi file mentah"):
-        st.dataframe(raw.head(20), use_container_width=True)
-
-    det_tgl, det_berita, det_deb, det_kre, det_mut = detect_bank_columns(raw)
-    cols = [str(c) for c in raw.columns]
-    c1, c2, c3, c4 = st.columns(4)
-    with c1: col_tgl = st.selectbox("Kolom Tanggal", cols, index=cols.index(str(det_tgl)) if det_tgl else 0)
-    with c2: col_berita = st.selectbox("Kolom Berita/Keterangan", cols, index=cols.index(str(det_berita)) if det_berita else 0)
-    with c3: col_deb = st.selectbox("Kolom Debit/Keluar (opsional)", ["--"] + cols, index=(["--"] + cols).index(str(det_deb)) if det_deb else 0)
-    with c4: col_kre = st.selectbox("Kolom Kredit/Masuk (opsional)", ["--"] + cols, index=(["--"] + cols).index(str(det_kre)) if det_kre else 0)
-    use_mutasi = False
-    col_mut = None
-    if col_deb == "--" and col_kre == "--":
-        st.info("Kolom debit/kredit tidak dipilih — pakai kolom mutasi bernomor.")
-        col_mut = st.selectbox("Kolom Mutasi/Nominal", cols, index=cols.index(str(det_mut)) if det_mut else 0)
-        use_mutasi = True
-
-    if st.button("Proses dengan AI", type="primary", use_container_width=True):
-        rows = []
-        for _, r in raw.iterrows():
-            tgl = pd.to_datetime(r[col_tgl], errors='coerce', dayfirst=True, format='mixed')
-            if pd.isna(tgl): tgl = pd.to_datetime(r[col_tgl], errors='coerce')
-            if pd.isna(tgl): continue
-            berita = str(r[col_berita]) if (col_berita and str(r[col_berita]) != 'nan') else ''
-            if use_mutasi:
-                mut = parse_amount_idr(r[col_mut])
-                deb = abs(mut) if mut < 0 else 0.0
-                kre = mut if mut > 0 else 0.0
-            else:
-                deb = parse_amount_idr(r[col_deb]) if col_deb != "--" else 0.0
-                kre = parse_amount_idr(r[col_kre]) if col_kre != "--" else 0.0
-            if deb == 0 and kre == 0: continue
-            if deb and kre:
-                if deb >= kre: kre = 0.0
-                else: deb = 0.0
-            entries = classify_bank_row(berita, deb, kre, bank_name)
-            rows.append({'tanggal': tgl.date(), 'berita': berita, 'debit': deb, 'kredit': kre, 'entries': entries})
+    if uploaded.name.lower().endswith('.pdf'):
+        rows, err = parse_pdf_statement(uploaded, bank_name)
+        if err:
+            st.error(err); return
         if not rows:
-            st.warning("Tidak ada transaksi valid yang terbaca. Cek pemetaan kolom."); return
-        months = sorted({(r['tanggal'].year, r['tanggal'].month) for r in rows})
-        period_info = ", ".join(f"{get_month_name(m)} {y}" for y, m in months)
-        st.success(f"AI membaca {len(rows)} transaksi pada periode: {period_info}")
+            st.warning("Tidak ada transaksi yang terbaca dari PDF. Coba gunakan file CSV/Excel dari e-banking."); return
+        months = sorted({(rw['tanggal'].year, rw['tanggal'].month) for rw in rows})
+        st.success(f"AI membaca {len(rows)} transaksi pada periode: {', '.join(f'{get_month_name(m)} {y}' for y, m in months)}")
         st.session_state.rk_rows = rows
+    else:
+        try:
+            if uploaded.name.lower().endswith('.csv'):
+                raw = pd.read_csv(uploaded)
+            else:
+                raw = pd.read_excel(uploaded)
+        except Exception as e:
+            st.error(f"Gagal membaca file: {e}"); return
+        raw = raw.dropna(how='all').dropna(axis=1, how='all')
+        if raw.empty:
+            st.error("File kosong atau format tidak dikenali."); return
+        st.success(f"File terbaca: {len(raw)} baris x {len(raw.columns)} kolom")
+        with st.expander("Lihat isi file mentah"):
+            st.dataframe(raw.head(20), use_container_width=True)
+
+        det_tgl, det_berita, det_deb, det_kre, det_mut = detect_bank_columns(raw)
+        cols = [str(c) for c in raw.columns]
+        c1, c2, c3, c4 = st.columns(4)
+        with c1: col_tgl = st.selectbox("Kolom Tanggal", cols, index=cols.index(str(det_tgl)) if det_tgl else 0)
+        with c2: col_berita = st.selectbox("Kolom Berita/Keterangan", cols, index=cols.index(str(det_berita)) if det_berita else 0)
+        with c3: col_deb = st.selectbox("Kolom Debit/Keluar (opsional)", ["--"] + cols, index=(["--"] + cols).index(str(det_deb)) if det_deb else 0)
+        with c4: col_kre = st.selectbox("Kolom Kredit/Masuk (opsional)", ["--"] + cols, index=(["--"] + cols).index(str(det_kre)) if det_kre else 0)
+        use_mutasi = False
+        col_mut = None
+        if col_deb == "--" and col_kre == "--":
+            st.info("Kolom debit/kredit tidak dipilih — pakai kolom mutasi bernomor.")
+            col_mut = st.selectbox("Kolom Mutasi/Nominal", cols, index=cols.index(str(det_mut)) if det_mut else 0)
+            use_mutasi = True
+
+        if st.button("Proses dengan AI", type="primary", use_container_width=True):
+            rows = []
+            for _, r in raw.iterrows():
+                tgl = pd.to_datetime(r[col_tgl], errors='coerce', dayfirst=True, format='mixed')
+                if pd.isna(tgl): tgl = pd.to_datetime(r[col_tgl], errors='coerce')
+                if pd.isna(tgl): continue
+                berita = str(r[col_berita]) if (col_berita and str(r[col_berita]) != 'nan') else ''
+                if use_mutasi:
+                    mut = parse_amount_idr(r[col_mut])
+                    deb = abs(mut) if mut < 0 else 0.0
+                    kre = mut if mut > 0 else 0.0
+                else:
+                    deb = parse_amount_idr(r[col_deb]) if col_deb != "--" else 0.0
+                    kre = parse_amount_idr(r[col_kre]) if col_kre != "--" else 0.0
+                if deb == 0 and kre == 0: continue
+                if deb and kre:
+                    if deb >= kre: kre = 0.0
+                    else: deb = 0.0
+                entries = classify_bank_row(berita, deb, kre, bank_name)
+                rows.append({'tanggal': tgl.date(), 'berita': berita, 'debit': deb, 'kredit': kre, 'entries': entries})
+            if not rows:
+                st.warning("Tidak ada transaksi valid yang terbaca. Cek pemetaan kolom."); return
+            months = sorted({(r['tanggal'].year, r['tanggal'].month) for r in rows})
+            period_info = ", ".join(f"{get_month_name(m)} {y}" for y, m in months)
+            st.success(f"AI membaca {len(rows)} transaksi pada periode: {period_info}")
+            st.session_state.rk_rows = rows
+
 
     if st.session_state.get('rk_rows'):
         rows = st.session_state.rk_rows
@@ -1349,19 +1423,22 @@ def page_jurnal_umum():
         bulan = None if filter_bulan == "Semua" else int(filter_bulan.split(" - ")[0])
         df = get_jurnal_list(100, tahun, bulan)
         if not df.empty:
-            df['total_debit'] = df['total_debit'].astype(float)
-            df['total_kredit'] = df['total_kredit'].astype(float)
+            df['total_debit'] = numcol(df['total_debit'])
+            df['total_kredit'] = numcol(df['total_kredit'])
             st.dataframe(df[['tanggal','no_bukti','keterangan','total_debit','total_kredit']], use_container_width=True, hide_index=True,
                 column_config={'tanggal':'Tanggal','no_bukti':'No. Bukti','keterangan':'Keterangan',
                     'total_debit': st.column_config.NumberColumn('Total Debit', format="Rp %.0f"),
                     'total_kredit': st.column_config.NumberColumn('Total Kredit', format="Rp %.0f")})
             st.markdown("---"); st.subheader("Detail Jurnal")
             selected_bukti = st.selectbox("Pilih No. Bukti", df['no_bukti'].tolist())
-            selected_id = int(df[df['no_bukti'] == selected_bukti].iloc[0]['id'])
+            sel_rows = df[df['no_bukti'] == selected_bukti]
+            if sel_rows.empty:
+                st.error("Jurnal tidak ditemukan."); return
+            selected_id = int(sel_rows.iloc[0]['id'])
             detail = get_jurnal_detail(selected_id)
             if not detail.empty:
-                detail['debit'] = detail['debit'].astype(float)
-                detail['kredit'] = detail['kredit'].astype(float)
+                detail['debit'] = numcol(detail['debit'])
+                detail['kredit'] = numcol(detail['kredit'])
                 st.dataframe(detail[['kode_akun','nama_akun','debit','kredit']], use_container_width=True, hide_index=True,
                     column_config={'kode_akun':'Kode','nama_akun':'Nama Akun',
                         'debit': st.column_config.NumberColumn('Debit', format="Rp %.0f"),
@@ -1383,7 +1460,13 @@ def page_buku_besar():
     with col2: filter_tahun = st.selectbox("Tahun", list(range(datetime.now().year, datetime.now().year-5, -1)))
     with col3: filter_bulan = st.selectbox("Bulan", ["Semua"] + [f"{i:02d} - {get_month_name(i)}" for i in range(1,13)])
     akun_kode = selected.split(" - ")[0]
-    akun_id = int(accounts_df[accounts_df['kode_akun'] == akun_kode].iloc[0]['id'])
+    matches = accounts_df[accounts_df['kode_akun'] == akun_kode]
+    if matches.empty:
+        st.error("Akun tidak ditemukan di database."); return
+    try:
+        akun_id = int(matches.iloc[0]['id'])
+    except (ValueError, TypeError):
+        st.error("ID akun tidak valid."); return
     tahun = int(filter_tahun)
     bulan = None if filter_bulan == "Semua" else int(filter_bulan.split(" - ")[0])
     df, akun_info = get_buku_besar(akun_id, tahun, bulan)
@@ -1500,6 +1583,28 @@ def page_laporan_keuangan():
     col1, col2 = st.columns(2)
     with col1: tahun = st.selectbox("Tahun", list(range(datetime.now().year, datetime.now().year-5, -1)))
     with col2: bulan = st.selectbox("Bulan", [None] + list(range(1,13)), format_func=lambda x: "Semua Bulan" if x is None else get_month_name(x))
+    st.markdown("---")
+    st.markdown("**Download Cepat** — laporan bulan/tahun sebelumnya")
+    py = datetime.now().year; pm = datetime.now().month - 1
+    if pm == 0: pm = 12; py -= 1
+    ty = datetime.now().year - 1
+    q1, q2, q3, q4 = st.columns(4)
+    with q1:
+        if st.button("Neraca Bulan Lalu"):
+            pdf = generate_neraca_pdf(py, pm)
+            if pdf: st.download_button("Download Neraca", data=pdf, file_name=f"Neraca_{py}_{pm:02d}.pdf", mime="application/pdf")
+    with q2:
+        if st.button("Laba Rugi Bulan Lalu"):
+            pdf = generate_laba_rugi_pdf(py, pm)
+            if pdf: st.download_button("Download L/R", data=pdf, file_name=f"LabaRugi_{py}_{pm:02d}.pdf", mime="application/pdf")
+    with q3:
+        if st.button("Neraca Tahun Lalu"):
+            pdf = generate_neraca_pdf(ty)
+            if pdf: st.download_button("Download Neraca", data=pdf, file_name=f"Neraca_{ty}.pdf", mime="application/pdf")
+    with q4:
+        if st.button("Laba Rugi Tahun Lalu"):
+            pdf = generate_laba_rugi_pdf(ty)
+            if pdf: st.download_button("Download L/R", data=pdf, file_name=f"LabaRugi_{ty}.pdf", mime="application/pdf")
     tab1, tab2 = st.tabs(["Neraca", "Laba Rugi"])
     with tab1:
         st.subheader("Neraca (Balance Sheet)")
@@ -1680,16 +1785,22 @@ def page_pengaturan():
         pajak_df = pd.read_sql_query("SELECT * FROM pajak_config WHERE is_active = 1", conn)
         conn.close()
         if not pajak_df.empty:
-            for _, row in pajak_df.iterrows():
-                with st.form(f"pajak_{row['id']}"):
-                    col1, col2 = st.columns(2)
-                    with col1: jenis = st.text_input("Jenis Pajak", value=row['jenis_pajak'], key=f"jenis_{row['id']}")
-                    with col2: tarif = st.number_input("Tarif (%)", value=safe_float(row['tarif']), step=0.5, key=f"tarif_{row['id']}")
-                    keterangan = st.text_area("Keterangan", value=row['keterangan'] or "", key=f"ket_{row['id']}")
-                    if st.form_submit_button("Update"):
-                        conn = get_connection(); cursor = conn.cursor()
-                        cursor.execute("UPDATE pajak_config SET jenis_pajak=%s, tarif=%s, keterangan=%s WHERE id=%s", (jenis, tarif, keterangan, int(row['id'])))
-                        conn.commit(); conn.close(); st.success("Updated!"); st.rerun()
+            pilih_pajak = st.selectbox("Pilih Jenis Pajak", [f"{rw['jenis_pajak']} (saat ini: {safe_float(rw['tarif'])}%)" for _, rw in pajak_df.iterrows()])
+            jenis_dipilih = pilih_pajak.split(" (")[0]
+            row_p = pajak_df[pajak_df['jenis_pajak'] == jenis_dipilih].iloc[0]
+            with st.form("form_pajak"):
+                jenis = st.text_input("Jenis Pajak", value=row_p['jenis_pajak'])
+                tarif = st.number_input("Tarif (%)", value=safe_float(row_p['tarif']), step=0.5)
+                keterangan = st.text_area("Keterangan", value=row_p['keterangan'] or "")
+                if st.form_submit_button("Update"):
+                    conn = get_connection(); cursor = conn.cursor()
+                    cursor.execute("UPDATE pajak_config SET jenis_pajak=%s, tarif=%s, keterangan=%s WHERE id=%s", (jenis, tarif, keterangan, int(row_p['id'])))
+                    conn.commit(); conn.close()
+                    log_activity("EDIT_PAJAK", f"Update pajak: {jenis}")
+                    st.success("Updated!"); st.rerun()
+        else:
+            st.info("Belum ada konfigurasi pajak")
+
     with tab2:
         st.subheader("Profil Perusahaan (tampil di Invoice)")
         profile = get_company_profile()
@@ -1761,6 +1872,110 @@ def page_pengaturan():
         """)
 
 # ============================================================
+# AKUN TAMBAHAN & TUTUP BUKU OTOMATIS
+# ============================================================
+
+EXTRA_ACCOUNTS = [
+    ('1-1105','Mandiri CJP','Aset','debit','1-1200'),
+    ('1-1106','Mandiri Pimpinan','Aset','debit','1-1200'),
+    ('1-2400','Inventaris Kantor','Aset','debit','1-2000'),
+    ('1-2401','Akumulasi Penyusutan Inventaris','Aset','kredit','1-2000'),
+    ('1-2500','Tanah','Aset','debit','1-2000'),
+    ('1-2600','Bangunan','Aset','debit','1-2000'),
+    ('1-2610','Akumulasi Penyusutan Bangunan','Aset','kredit','1-2000'),
+    ('2-1600','Hutang Cicilan Ruko','Kewajiban','kredit','2-1000'),
+    ('2-1700','Hutang Jangka Pendek','Kewajiban','kredit','2-1000'),
+    ('2-2000','Kewajiban Jangka Panjang','Kewajiban','kredit',None),
+    ('2-2100','Hutang Jangka Panjang','Kewajiban','kredit','2-2000'),
+    ('3-1500','Modal Awal','Ekuitas','kredit','3-1000'),
+    ('3-1600','Dividen','Ekuitas','debit','3-1000'),
+]
+
+def ensure_extra_accounts(cursor):
+    """Tambahkan akun-akun baru bila belum ada (tidak mengubah akun lama)."""
+    for kode, nama, tipe, saldo, parent_kode in EXTRA_ACCOUNTS:
+        cursor.execute("SELECT id FROM akun WHERE kode_akun = %s", (kode,))
+        if cursor.fetchone(): continue
+        pid = None
+        if parent_kode:
+            cursor.execute("SELECT id FROM akun WHERE kode_akun = %s", (parent_kode,))
+            rr = cursor.fetchone()
+            pid = rr['id'] if rr else None
+        cursor.execute("INSERT INTO akun (kode_akun, nama_akun, tipe_akun, saldo_normal, parent_id) VALUES (%s,%s,%s,%s,%s)",
+                       (kode, nama, tipe, saldo, pid))
+
+def _akun_id(kode):
+    conn = get_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT id FROM akun WHERE kode_akun = %s", (kode,))
+    rr = cursor.fetchone(); conn.close()
+    return int(rr['id']) if rr else None
+
+def _mark_closed(y, m):
+    conn = get_connection(); cursor = conn.cursor()
+    cursor.execute("""INSERT INTO periode_akuntansi (tahun, bulan, is_closed, closed_at, closed_by) VALUES (%s,%s,1,CURRENT_TIMESTAMP,%s)
+        ON CONFLICT (tahun, bulan) DO UPDATE SET is_closed=1, closed_at=CURRENT_TIMESTAMP, closed_by=EXCLUDED.closed_by""", (y, m, 'auto'))
+    conn.commit(); conn.close()
+
+def auto_tutup_buku():
+    """Otomatis saat app dibuka: tutup buku bulan lalu + pindahkan laba ke Laba Ditahan."""
+    import calendar
+    today = date.today()
+    prev_year, prev_month = (today.year, today.month - 1) if today.month > 1 else (today.year - 1, 12)
+    conn = get_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT is_closed FROM periode_akuntansi WHERE tahun=%s AND bulan=%s", (prev_year, prev_month))
+    res = cursor.fetchone()
+    if res and res['is_closed'] == 1:
+        conn.close(); return
+    periode = f"{prev_year}-{prev_month:02d}"
+    df = pd.read_sql_query("""
+        SELECT a.id, a.kode_akun, a.tipe_akun,
+               COALESCE(SUM(jd.debit),0) as td, COALESCE(SUM(jd.kredit),0) as tk
+        FROM akun a
+        LEFT JOIN jurnal_detail jd ON a.id = jd.akun_id
+        LEFT JOIN jurnal j ON jd.jurnal_id = j.id AND j.is_posted = 1 AND TO_CHAR(j.tanggal,'YYYY-MM') = %s
+        WHERE a.is_active = 1 AND a.parent_id IS NOT NULL AND a.tipe_akun IN ('Pendapatan','Beban')
+        GROUP BY a.id, a.kode_akun, a.tipe_akun
+    """, conn, params=[periode])
+    conn.close()
+    entries = []; total_p = 0.0; total_b = 0.0
+    for _, rr in df.iterrows():
+        td = safe_float(rr['td']); tk = safe_float(rr['tk'])
+        if rr['tipe_akun'] == 'Pendapatan':
+            bal = tk - td
+            if bal > 0:
+                entries.append((int(rr['id']), bal, 0.0)); total_p += bal
+        else:
+            bal = td - tk
+            if bal > 0:
+                entries.append((int(rr['id']), 0.0, bal)); total_b += bal
+    id_lr = _akun_id('3-1400'); id_ld = _akun_id('3-1300')
+    if not entries or not id_lr or not id_ld:
+        _mark_closed(prev_year, prev_month); return
+    entries.append((id_lr, 0.0, total_p))
+    entries.append((id_lr, total_b, 0.0))
+    laba = total_p - total_b
+    if abs(laba) > 0.005:
+        if laba >= 0:
+            entries.append((id_lr, laba, 0.0)); entries.append((id_ld, 0.0, laba))
+        else:
+            entries.append((id_ld, -laba, 0.0)); entries.append((id_lr, 0.0, -laba))
+    last_day = calendar.monthrange(prev_year, prev_month)[1]
+    tgl_close = date(prev_year, prev_month, last_day)
+    total_d = sum(e[1] for e in entries); total_k = sum(e[2] for e in entries)
+    conn = get_connection(); cursor = conn.cursor()
+    no_bukti = f"CLS-{periode}"
+    cursor.execute("INSERT INTO jurnal (tanggal, no_bukti, keterangan, total_debit, total_kredit, periode) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id",
+                   (tgl_close, no_bukti, f"Jurnal penutup otomatis periode {get_month_name(prev_month)} {prev_year}", total_d, total_k, periode))
+    jid = cursor.fetchone()['id']
+    for akun_id, d, k in entries:
+        cursor.execute("INSERT INTO jurnal_detail (jurnal_id, akun_id, debit, kredit) VALUES (%s,%s,%s,%s)", (jid, akun_id, d, k))
+    conn.commit(); conn.close()
+    _mark_closed(prev_year, prev_month)
+    log_activity("TUTUP_BUKU_OTO", f"Tutup buku otomatis {periode} (laba {laba:,.0f})")
+    try: st.toast(f"Buku {get_month_name(prev_month)} {prev_year} ditutup otomatis. Laba Rp {laba:,.0f} pindah ke Laba Ditahan.")
+    except Exception: pass
+
+# ============================================================
 # MAIN APP
 # ============================================================
 
@@ -1768,17 +1983,18 @@ def main():
     set_page_config(); apply_custom_css(); init_database()
     if 'username' not in st.session_state: st.session_state.username = 'admin'
     menu = render_sidebar()
-    if menu == "🏠 Dashboard": page_dashboard()
-    elif menu == "📋 Daftar Akun": page_chart_of_accounts()
-    elif menu == "🤖 AI Jurnal Assistant": page_ai_journal()
-    elif menu == "🏦 Rekening Koran AI": page_rekening_koran()
-    elif menu == "📝 Jurnal Umum": page_jurnal_umum()
-    elif menu == "📖 Buku Besar": page_buku_besar()
-    elif menu == "📄 Invoice": page_invoice()
-    elif menu == "📊 Laporan Keuangan": page_laporan_keuangan()
-    elif menu == "💰 Laporan Pajak": page_laporan_pajak()
-    elif menu == "🔒 Tutup Buku": page_tutup_buku()
-    elif menu == "⚙️ Pengaturan": page_pengaturan()
+    try: auto_tutup_buku()
+    except Exception: pass
+    if menu == "🏠 Dashboard": safe_page(page_dashboard)
+    elif menu == "📋 Daftar Akun": safe_page(page_chart_of_accounts)
+    elif menu == "🤖 AI Jurnal Assistant": safe_page(page_ai_journal)
+    elif menu == "🏦 Rekening Koran AI": safe_page(page_rekening_koran)
+    elif menu == "📝 Jurnal Umum": safe_page(page_jurnal_umum)
+    elif menu == "📖 Buku Besar": safe_page(page_buku_besar)
+    elif menu == "📄 Invoice": safe_page(page_invoice)
+    elif menu == "📊 Laporan Keuangan": safe_page(page_laporan_keuangan)
+    elif menu == "💰 Laporan Pajak": safe_page(page_laporan_pajak)
+    elif menu == "⚙️ Pengaturan": safe_page(page_pengaturan)
 
 if __name__ == "__main__":
     main()
