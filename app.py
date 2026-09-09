@@ -1334,10 +1334,7 @@ def page_jurnal_umum():
                         jurnal_id = cursor.fetchone()['id']
                         for entry in entries:
                             akun_kode = entry['akun'].split(" - ")[0]
-                            cursor.execute("SELECT id FROM akun WHERE kode_akun = %s", (akun_kode,))
-                            akun_id = cursor.fetchone()['id']
-                                      cursor.execute("INSERT INTO jurnal_detail (jurnal_id, akun_id, debit, kredit) VALUES (%s,%s,%s,%s)",
-                                         (jurnal_id, akun_id, entry['debit'], entry['kredit']))
+                            cursor.execute("SELECT id FROM akun WHERE kode_akun = %s", (akun_kode,)) akun_id = cursor.fetchone()['id'] cursor.execute("INSERT INTO jurnal_detail (jurnal_id, akun_id, debit, kredit) VALUES (%s,%s,%s,%s)",(jurnal_id, akun_id, entry['debit'], entry['kredit']))
                         conn.commit(); conn.close()
                         log_activity("JURNAL_MANUAL", f"Jurnal manual: {keterangan[:50]}")
                         st.success(f"Jurnal berhasil disimpan: {no_bukti}"); st.rerun()
