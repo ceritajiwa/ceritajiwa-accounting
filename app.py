@@ -41,6 +41,15 @@ def get_connection():
     conn = psycopg2.connect(get_db_url(), cursor_factory=RealDictCursor)
     return conn
 
+def read_sql_query(sql, conn=None, params=None):
+    """Pembungkus aman: pakai koneksi PLAIN (tanpa RealDictCursor).
+    RealDictCursor tidak cocok dengan pandas 3.0 — mengembalikan nama kolom sebagai nilai."""
+    c = psycopg2.connect(get_db_url())
+    try:
+        return pd.read_sql_query(sql, c, params=params)
+    finally:
+        c.close()
+
 def init_database():
     conn = get_connection()
     cursor = conn.cursor()
@@ -203,7 +212,7 @@ def repair_account_parents(cursor):
 
 def get_company_profile():
     conn = get_connection()
-    df = pd.read_sql_query("SELECT * FROM company_profile ORDER BY id LIMIT 1", conn)
+    df = read_sql_query("SELECT * FROM company_profile ORDER BY id LIMIT 1", conn)
     conn.close()
     keys = ['id','nama','alamat','telepon','email','bank_info','catatan_invoice']
     if df.empty:
@@ -409,7 +418,7 @@ def ai_journal_assistant(deskripsi, nilai_rupiah=None):
 
 def get_all_accounts():
     conn = get_connection()
-    df = pd.read_sql_query("""
+    df = read_sql_query("""
         SELECT a.*, p.nama_akun as parent_name 
         FROM akun a LEFT JOIN akun p ON a.parent_id = p.id 
         WHERE a.is_active = 1 ORDER BY a.kode_akun
@@ -443,7 +452,7 @@ def get_neraca(tahun=None, bulan=None):
     GROUP BY a.id, a.kode_akun, a.nama_akun, a.tipe_akun, a.saldo_normal
     ORDER BY a.kode_akun
     """
-    df = pd.read_sql_query(query, conn, params=params)
+    df = read_sql_query(query, conn, params=params)
     conn.close()
     df['total_debit'] = numcol(df['total_debit'])
     df['total_kredit'] = numcol(df['total_kredit'])
@@ -476,7 +485,7 @@ def get_laba_rugi(tahun=None, bulan=None):
     GROUP BY a.id, a.kode_akun, a.nama_akun, a.tipe_akun
     ORDER BY a.kode_akun
     """
-    df = pd.read_sql_query(query, conn, params=params)
+    df = read_sql_query(query, conn, params=params)
     conn.close()
     df['total_debit'] = numcol(df['total_debit'])
     df['total_kredit'] = numcol(df['total_kredit'])
@@ -505,8 +514,8 @@ def get_buku_besar(akun_id, tahun=None, bulan=None):
     WHERE jd.akun_id = %s AND j.is_posted = 1 {date_filter}
     ORDER BY j.tanggal, j.id
     """
-    df = pd.read_sql_query(query, conn, params=params)
-    akun_info = pd.read_sql_query("SELECT * FROM akun WHERE id = %s", conn, params=(akun_id,))
+    df = read_sql_query(query, conn, params=params)
+    akun_info = read_sql_query("SELECT * FROM akun WHERE id = %s", conn, params=(akun_id,))
     conn.close()
     if not df.empty:
         df['debit'] = numcol(df['debit'])
@@ -534,13 +543,13 @@ def get_jurnal_list(limit=100, tahun=None, bulan=None):
         params.append(str(tahun))
     query = f"SELECT * FROM jurnal {date_filter} ORDER BY tanggal DESC, id DESC LIMIT %s"
     params.append(limit)
-    df = pd.read_sql_query(query, conn, params=params)
+    df = read_sql_query(query, conn, params=params)
     conn.close()
     return df
 
 def get_jurnal_detail(jurnal_id):
     conn = get_connection()
-    df = pd.read_sql_query("""
+    df = read_sql_query("""
         SELECT jd.*, a.kode_akun, a.nama_akun, a.tipe_akun
         FROM jurnal_detail jd
         JOIN akun a ON jd.akun_id = a.id
@@ -584,14 +593,14 @@ def get_invoices(status=None, limit=100):
         params.append(status)
     query += " ORDER BY tanggal DESC LIMIT %s"
     params.append(limit)
-    df = pd.read_sql_query(query, conn, params=params)
+    df = read_sql_query(query, conn, params=params)
     conn.close()
     return df
 
 def get_invoice_by_id(invoice_id):
     conn = get_connection()
-    invoice = pd.read_sql_query("SELECT * FROM invoice WHERE id = %s", conn, params=(invoice_id,))
-    items = pd.read_sql_query("SELECT * FROM invoice_item WHERE invoice_id = %s", conn, params=(invoice_id,))
+    invoice = read_sql_query("SELECT * FROM invoice WHERE id = %s", conn, params=(invoice_id,))
+    items = read_sql_query("SELECT * FROM invoice_item WHERE invoice_id = %s", conn, params=(invoice_id,))
     conn.close()
     return invoice, items
 
@@ -808,8 +817,8 @@ def generate_tax_report(tahun, bulan=None):
         {date_filter} AND a.tipe_akun = 'Beban' AND j.is_posted = 1 AND j.no_bukti NOT LIKE 'CLS-%'
         GROUP BY a.id, a.nama_akun
     """
-    total_pendapatan = safe_float(pd.read_sql_query(pendapatan_query, conn, params=params).iloc[0]['total'])
-    beban_df = pd.read_sql_query(beban_query, conn, params=params)
+    total_pendapatan = safe_float(read_sql_query(pendapatan_query, conn, params=params).iloc[0]['total'])
+    beban_df = read_sql_query(beban_query, conn, params=params)
     if not beban_df.empty:
         beban_df['total'] = numcol(beban_df['total'])
     total_beban = float(beban_df['total'].sum()) if not beban_df.empty else 0.0
@@ -928,19 +937,19 @@ def page_dashboard():
     now = datetime.now(); current_year = now.year; current_month = now.month
     
     col1, col2, col3, col4 = st.columns(4)
-    pendapatan = safe_float(pd.read_sql_query("""
+    pendapatan = safe_float(read_sql_query("""
         SELECT COALESCE(SUM(jd.kredit), 0) as total FROM jurnal_detail jd
         JOIN jurnal j ON jd.jurnal_id = j.id JOIN akun a ON jd.akun_id = a.id
         WHERE a.tipe_akun = 'Pendapatan' AND j.is_posted = 1 AND TO_CHAR(j.tanggal,'YYYY-MM') = %s
     """, conn, params=[f"{current_year}-{current_month:02d}"]).iloc[0]['total'])
 
-    beban = safe_float(pd.read_sql_query("""
+    beban = safe_float(read_sql_query("""
         SELECT COALESCE(SUM(jd.debit), 0) as total FROM jurnal_detail jd
         JOIN jurnal j ON jd.jurnal_id = j.id JOIN akun a ON jd.akun_id = a.id
         WHERE a.tipe_akun = 'Beban' AND j.is_posted = 1 AND TO_CHAR(j.tanggal,'YYYY-MM') = %s
     """, conn, params=[f"{current_year}-{current_month:02d}"]).iloc[0]['total'])
 
-    unpaid_invoices = pd.read_sql_query("""
+    unpaid_invoices = read_sql_query("""
         SELECT COALESCE(SUM(total), 0) as total, COUNT(*) as count FROM invoice
         WHERE is_paid = 0 AND status != 'cancelled'
     """, conn)
@@ -959,7 +968,7 @@ def page_dashboard():
         trend_data = []
         for i in range(5, -1, -1):
             d = now - timedelta(days=i*30)
-            p = safe_float(pd.read_sql_query("""
+            p = safe_float(read_sql_query("""
                 SELECT COALESCE(SUM(jd.kredit), 0) as total FROM jurnal_detail jd
                 JOIN jurnal j ON jd.jurnal_id = j.id JOIN akun a ON jd.akun_id = a.id
                 WHERE a.tipe_akun = 'Pendapatan' AND j.is_posted = 1 AND TO_CHAR(j.tanggal,'YYYY-MM') = %s
@@ -969,7 +978,7 @@ def page_dashboard():
         st.bar_chart(trend_df.set_index('Bulan'))
     with col2:
         st.subheader("Komposisi Beban")
-        beban_data = pd.read_sql_query("""
+        beban_data = read_sql_query("""
             SELECT a.nama_akun, COALESCE(SUM(jd.debit), 0) as total FROM jurnal_detail jd
             JOIN jurnal j ON jd.jurnal_id = j.id JOIN akun a ON jd.akun_id = a.id
             WHERE a.tipe_akun = 'Beban' AND j.is_posted = 1 AND TO_CHAR(j.tanggal,'YYYY-MM') = %s
@@ -984,12 +993,12 @@ def page_dashboard():
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("**Jurnal Terbaru**")
-        recent_journals = pd.read_sql_query("SELECT tanggal, keterangan, total_debit FROM jurnal ORDER BY created_at DESC LIMIT 5", conn)
+        recent_journals = read_sql_query("SELECT tanggal, keterangan, total_debit FROM jurnal ORDER BY created_at DESC LIMIT 5", conn)
         if not recent_journals.empty: st.dataframe(recent_journals, use_container_width=True, hide_index=True)
         else: st.info("Belum ada jurnal")
     with col2:
         st.markdown("**Invoice Terbaru**")
-        recent_invoices = pd.read_sql_query("SELECT no_invoice, customer_name, total, status FROM invoice ORDER BY created_at DESC LIMIT 5", conn)
+        recent_invoices = read_sql_query("SELECT no_invoice, customer_name, total, status FROM invoice ORDER BY created_at DESC LIMIT 5", conn)
         if not recent_invoices.empty: st.dataframe(recent_invoices, use_container_width=True, hide_index=True)
         else: st.info("Belum ada invoice")
     conn.close()
@@ -1051,7 +1060,7 @@ def page_chart_of_accounts():
             tipe = st.selectbox("Tipe Akun*", ['Aset','Kewajiban','Ekuitas','Pendapatan','Beban'])
             saldo = st.selectbox("Saldo Normal*", ['debit','kredit'])
             conn = get_connection()
-            parents = pd.read_sql_query("SELECT id, kode_akun, nama_akun FROM akun WHERE parent_id IS NULL AND is_active=1", conn)
+            parents = read_sql_query("SELECT id, kode_akun, nama_akun FROM akun WHERE parent_id IS NULL AND is_active=1", conn)
             conn.close()
             parent_options = ["Tanpa Induk"] + [f"{row['kode_akun']} - {row['nama_akun']}" for _, row in parents.iterrows()]
             parent_selected = st.selectbox("Induk (Parent)", parent_options)
@@ -1752,12 +1761,12 @@ def page_tutup_buku():
         result = cursor.fetchone()
         if result and result['is_closed'] == 1: st.error(f"Periode {get_month_name(tutup_bulan)} {tutup_tahun} sudah ditutup!")
         else:
-            pendapatan = safe_float(pd.read_sql_query("""
+            pendapatan = safe_float(read_sql_query("""
                 SELECT COALESCE(SUM(jd.kredit), 0) as total FROM jurnal_detail jd
                 JOIN jurnal j ON jd.jurnal_id = j.id JOIN akun a ON jd.akun_id = a.id
                 WHERE a.tipe_akun = 'Pendapatan' AND j.is_posted = 1 AND TO_CHAR(j.tanggal,'YYYY-MM') = %s
             """, conn, params=[f"{tutup_tahun}-{tutup_bulan:02d}"]).iloc[0]['total'])
-            beban = safe_float(pd.read_sql_query("""
+            beban = safe_float(read_sql_query("""
                 SELECT COALESCE(SUM(jd.debit), 0) as total FROM jurnal_detail jd
                 JOIN jurnal j ON jd.jurnal_id = j.id JOIN akun a ON jd.akun_id = a.id
                 WHERE a.tipe_akun = 'Beban' AND j.is_posted = 1 AND TO_CHAR(j.tanggal,'YYYY-MM') = %s
@@ -1793,7 +1802,7 @@ def page_tutup_buku():
             st.success(f"Buku tahun {tutup_tahun_th} berhasil ditutup!"); st.rerun()
     with tab3:
         st.subheader("Status Periode Akuntansi")
-        periode_df = pd.read_sql_query("SELECT tahun, bulan, is_closed, closed_at, closed_by FROM periode_akuntansi ORDER BY tahun DESC, bulan DESC", conn)
+        periode_df = read_sql_query("SELECT tahun, bulan, is_closed, closed_at, closed_by FROM periode_akuntansi ORDER BY tahun DESC, bulan DESC", conn)
         if not periode_df.empty:
             periode_df['bulan_nama'] = periode_df['bulan'].apply(get_month_name)
             periode_df['status'] = periode_df['is_closed'].apply(lambda x: 'Tertutup' if x else 'Terbuka')
@@ -1812,7 +1821,7 @@ def page_pengaturan():
     with tab1:
         st.subheader("Konfigurasi Pajak")
         conn = get_connection()
-        pajak_df = pd.read_sql_query("SELECT * FROM pajak_config WHERE is_active = 1", conn)
+        pajak_df = read_sql_query("SELECT * FROM pajak_config WHERE is_active = 1", conn)
         conn.close()
         if not pajak_df.empty:
             pilih_pajak = st.selectbox("Pilih Jenis Pajak", [f"{rw['jenis_pajak']} (saat ini: {safe_float(rw['tarif'])}%)" for _, rw in pajak_df.iterrows()])
@@ -1967,7 +1976,7 @@ def auto_tutup_buku():
     if res and res['is_closed'] == 1:
         conn.close(); return
     periode = f"{prev_year}-{prev_month:02d}"
-    df = pd.read_sql_query("""
+    df = read_sql_query("""
         SELECT a.id, a.kode_akun, a.tipe_akun,
                COALESCE(SUM(jd.debit),0) as td, COALESCE(SUM(jd.kredit),0) as tk
         FROM akun a
