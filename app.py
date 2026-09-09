@@ -890,7 +890,7 @@ def page_dashboard():
     col1, col2, col3, col4 = st.columns(4)
     pendapatan = safe_float(pd.read_sql_query("""
         SELECT COALESCE(SUM(jd.kredit), 0) as total FROM jurnal_detail jd
-    JOIN jurnal j ON jd.jurnal_id = j.id JOIN akun a ON jd.akun_id = a.id
+        JOIN jurnal j ON jd.jurnal_id = j.id JOIN akun a ON jd.akun_id = a.id
         WHERE a.tipe_akun = 'Pendapatan' AND j.is_posted = 1 AND TO_CHAR(j.tanggal,'YYYY-MM') = %s
     """, conn, params=[f"{current_year}-{current_month:02d}"]).iloc[0]['total'])
 
@@ -1334,7 +1334,10 @@ def page_jurnal_umum():
                         jurnal_id = cursor.fetchone()['id']
                         for entry in entries:
                             akun_kode = entry['akun'].split(" - ")[0]
-                            cursor.execute("SELECT id FROM akun WHERE kode_akun = %s", (akun_kode,)) akun_id = cursor.fetchone()['id'] cursor.execute("INSERT INTO jurnal_detail (jurnal_id, akun_id, debit, kredit) VALUES (%s,%s,%s,%s)",(jurnal_id, akun_id, entry['debit'], entry['kredit']))
+                            cursor.execute("SELECT id FROM akun WHERE kode_akun = %s", (akun_kode,))
+                            akun_id = cursor.fetchone()['id']
+                            cursor.execute("INSERT INTO jurnal_detail (jurnal_id, akun_id, debit, kredit) VALUES (%s,%s,%s,%s)",
+                                         (jurnal_id, akun_id, entry['debit'], entry['kredit']))
                         conn.commit(); conn.close()
                         log_activity("JURNAL_MANUAL", f"Jurnal manual: {keterangan[:50]}")
                         st.success(f"Jurnal berhasil disimpan: {no_bukti}"); st.rerun()
