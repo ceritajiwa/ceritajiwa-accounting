@@ -753,7 +753,7 @@ def apply_custom_css():
     .metric-label { font-size: 0.9rem; color: #6D6F71; }
     .stButton>button { background-color: #344A61; color: white; border-radius: 8px; border: none; padding: 0.5rem 1.5rem; font-weight: 500; }
     .stButton>button:hover { background-color: #243447; }
-    div[data-testid=\"stSidebar\"] { background-color: #f5f5f5; }
+    div[data-testid="stSidebar"] { background-color: #f5f5f5; }
     .status-paid { color: #2E7D32; font-weight: 600; }
     .status-unpaid { color: #ED6C02; font-weight: 600; }
     .status-draft { color: #757575; font-weight: 600; }
@@ -779,8 +779,8 @@ def render_sidebar():
 # ============================================================
 
 def page_dashboard():
-    st.markdown('<p class=\"main-header\">Dashboard</p>', unsafe_allow_html=True)
-    st.markdown('<p class=\"sub-header\">Ringkasan Keuangan Cerita Jiwa</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">Dashboard</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Ringkasan Keuangan Cerita Jiwa</p>', unsafe_allow_html=True)
     conn = get_connection()
     now = datetime.now(); current_year = now.year; current_month = now.month
     
@@ -802,13 +802,12 @@ def page_dashboard():
         WHERE is_paid = 0 AND status != 'cancelled'
     """, conn)
     
-    with col1: st.markdown(f'<div class="metric-card"><div class=\"metric-label\">Pendapatan {get_month_name(current_month)}</div><div class=\"metric-value\">{format_rupiah(pendapatan)}</div></div>', unsafe_allow_html=True)
-    with col2: st.markdown(f'<div class="metric-card"><div class=\"metric-label\">Beban {get_month_name(current_month)}</div><div class=\"metric-value\">{format_rupiah(beban)}</div></div>', unsafe_allow_html=True)
-    with col3: st.markdown(f'<div class="metric-card"><div class=\"metric-label\">Laba/Rugi {get_month_name(current_month)}</div><div class=\"metric-value\">{format_rupiah(pendapatan - beban)}</div></div>', unsafe_allow_html=True)
-    with col4: 
+    with col1: st.markdown(f'<div class="metric-card"><div class="metric-label">Pendapatan {get_month_name(current_month)}</div><div class="metric-value">{format_rupiah(pendapatan)}</div></div>', unsafe_allow_html=True)
+    with col2: st.markdown(f'<div class="metric-card"><div class="metric-label">Beban {get_month_name(current_month)}</div><div class="metric-value">{format_rupiah(beban)}</div></div>', unsafe_allow_html=True)
+    with col3: st.markdown(f'<div class="metric-card"><div class="metric-label">Laba/Rugi {get_month_name(current_month)}</div><div class="metric-value">{format_rupiah(pendapatan - beban)}</div></div>', unsafe_allow_html=True)
     total_unpaid = unpaid_invoices.iloc[0]['total'] or 0
     count_unpaid = unpaid_invoices.iloc[0]['count'] or 0
-    st.markdown(f'<div class="metric-card"><div class="metric-label">Invoice Belum Dibayar</div><div class="metric-value">{format_rupiah(total_unpaid)}</div><div style="font-size: 0.8rem; color: #6D6F71;">{count_unpaid} invoice</div></div>', unsafe_allow_html=True)
+    with col4: st.markdown(f'<div class="metric-card"><div class="metric-label">Invoice Belum Dibayar</div><div class="metric-value">{format_rupiah(total_unpaid)}</div><div style="font-size: 0.8rem; color: #6D6F71;">{count_unpaid} invoice</div></div>', unsafe_allow_html=True)
     
     st.markdown("---")
     col1, col2 = st.columns(2)
@@ -855,8 +854,8 @@ def page_dashboard():
 # ============================================================
 
 def page_chart_of_accounts():
-    st.markdown('<p class=\"main-header\">Daftar Akun (Chart of Accounts)</p>', unsafe_allow_html=True)
-    st.markdown('<p class=\"sub-header\">Kelola akun-akun pembukuan</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">Daftar Akun (Chart of Accounts)</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Kelola akun-akun pembukuan</p>', unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["📋 Lihat Daftar Akun", "➕ Tambah Akun Baru"])
     with tab1:
         df = get_all_accounts()
@@ -930,8 +929,8 @@ def page_chart_of_accounts():
 # ============================================================
 
 def page_ai_journal():
-    st.markdown('<p class=\"main-header\">AI Jurnal Assistant</p>', unsafe_allow_html=True)
-    st.markdown('<p class=\"sub-header\">Deskripsikan transaksi, AI akan menentukan jurnalnya</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">AI Jurnal Assistant</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Deskripsikan transaksi, AI akan menentukan jurnalnya</p>', unsafe_allow_html=True)
     st.info("Contoh: Beli motor 31.500.000 bayar cicil 5 tahun, DP 10.000.000 bunga 7% per bulan | Terima pembayaran training 5.000.000 via BCA | Bayar gaji karyawan 15.000.000")
     if 'ai_result' not in st.session_state: st.session_state.ai_result = None
     if 'ai_questions' not in st.session_state: st.session_state.ai_questions = []
@@ -1017,8 +1016,8 @@ def page_ai_journal():
 # ============================================================
 
 def page_jurnal_umum():
-    st.markdown('<p class=\"main-header\">Jurnal Umum</p>', unsafe_allow_html=True)
-    st.markdown('<p class=\"sub-header\">Input dan kelola jurnal transaksi</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">Jurnal Umum</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Input dan kelola jurnal transaksi</p>', unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["Input Jurnal Baru", "Daftar Jurnal"])
     with tab1:
         with st.form("input_jurnal"):
@@ -1084,8 +1083,8 @@ def page_jurnal_umum():
 # ============================================================
 
 def page_buku_besar():
-    st.markdown('<p class=\"main-header\">Buku Besar</p>', unsafe_allow_html=True)
-    st.markdown('<p class=\"sub-header\">Lihat buku kecil per akun</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">Buku Besar</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Lihat buku kecil per akun</p>', unsafe_allow_html=True)
     accounts_df = get_all_accounts()
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -1116,8 +1115,8 @@ def page_buku_besar():
 # ============================================================
 
 def page_invoice():
-    st.markdown('<p class=\"main-header\">Invoice</p>', unsafe_allow_html=True)
-    st.markdown('<p class=\"sub-header\">Buat dan kelola invoice</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">Invoice</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Buat dan kelola invoice</p>', unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["Buat Invoice Baru", "Daftar Invoice"])
     with tab1:
         with st.form("buat_invoice"):
@@ -1199,8 +1198,8 @@ def page_invoice():
 # ============================================================
 
 def page_laporan_keuangan():
-    st.markdown('<p class=\"main-header\">Laporan Keuangan</p>', unsafe_allow_html=True)
-    st.markdown('<p class=\"sub-header\">Neraca dan Laba Rugi</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">Laporan Keuangan</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Neraca dan Laba Rugi</p>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1: tahun = st.selectbox("Tahun", list(range(datetime.now().year, datetime.now().year-5, -1)))
     with col2: bulan = st.selectbox("Bulan", [None] + list(range(1,13)), format_func=lambda x: "Semua Bulan" if x is None else get_month_name(x))
@@ -1261,17 +1260,17 @@ def page_laporan_keuangan():
 # ============================================================
 
 def page_laporan_pajak():
-    st.markdown('<p class=\"main-header\">Laporan Pajak</p>', unsafe_allow_html=True)
-    st.markdown('<p class=\"sub-header\">Ringkasan perpajakan untuk pelaporan</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">Laporan Pajak</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Ringkasan perpajakan untuk pelaporan</p>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1: tahun = st.selectbox("Tahun", list(range(datetime.now().year, datetime.now().year-5, -1)))
     with col2: bulan = st.selectbox("Bulan", [None] + list(range(1,13)), format_func=lambda x: "Semua Bulan" if x is None else get_month_name(x))
     report = generate_tax_report(tahun, bulan)
     st.markdown("---"); st.subheader(f"Ringkasan Pajak - {report['periode']}")
     col1, col2, col3 = st.columns(3)
-    with col1: st.markdown(f'<div class="metric-card"><div class=\"metric-label\">Total Pendapatan</div><div class=\"metric-value\">{format_rupiah(report["total_pendapatan"])}</div></div>', unsafe_allow_html=True)
-    with col2: st.markdown(f'<div class="metric-card"><div class=\"metric-label\">Total Beban</div><div class=\"metric-value\">{format_rupiah(report["total_beban"])}</div></div>', unsafe_allow_html=True)
-    with col3: st.markdown(f'<div class="metric-card"><div class=\"metric-label\">Laba/Rugi</div><div class=\"metric-value\">{format_rupiah(report["laba_rugi"])}</div></div>', unsafe_allow_html=True)
+    with col1: st.markdown(f'<div class="metric-card"><div class="metric-label">Total Pendapatan</div><div class="metric-value">{format_rupiah(report["total_pendapatan"])}</div></div>', unsafe_allow_html=True)
+    with col2: st.markdown(f'<div class="metric-card"><div class="metric-label">Total Beban</div><div class="metric-value">{format_rupiah(report["total_beban"])}</div></div>', unsafe_allow_html=True)
+    with col3: st.markdown(f'<div class="metric-card"><div class="metric-label">Laba/Rugi</div><div class="metric-value">{format_rupiah(report["laba_rugi"])}</div></div>', unsafe_allow_html=True)
     st.markdown("---"); st.subheader("Estimasi Pajak Terutang")
     tax_data = [
         ['PPh 21 (estimasi 5%)', format_rupiah(report['pph_21'])],
@@ -1290,46 +1289,175 @@ def page_laporan_pajak():
         pdf = generate_tax_pdf(tahun, bulan)
         if pdf: st.download_button("Download PDF", data=pdf, file_name=f"LaporanPajak_{tahun}{f'_{bulan:02d}' if bulan else ''}.pdf", mime="application/pdf")
         else: st.error("Gagal generate PDF")
-    csv_data = f\"\"\"Laporan Pajak Cerita Jiwa\nPeriode: {report['periode']}\n\nTotal Pendapatan,{report['total_pendapatan']}\nTotal Beban,{report['total_beban']}\nLaba/Rugi,{report['laba_rugi']}\n\nPPh 21 (5%),{report['pph_21']}\nPPh 23 (2%),{report['pph_23']}\nPPN (11%),{report['ppn']}\nTotal Pajak,{report['pph_21'] + report['pph_23'] + report['ppn']}\"\"\"
-    st.download_button(\"Download CSV\", data=csv_data, file_name=f\"LaporanPajak_{tahun}{f'_{bulan:02d}' if bulan else ''}.csv\", mime=\"text/csv\")
+    csv_data = f"""Laporan Pajak Cerita Jiwa
+Periode: {report['periode']}
+
+Total Pendapatan,{report['total_pendapatan']}
+Total Beban,{report['total_beban']}
+Laba/Rugi,{report['laba_rugi']}
+
+PPh 21 (5%),{report['pph_21']}
+PPh 23 (2%),{report['pph_23']}
+PPN (11%),{report['ppn']}
+Total Pajak,{report['pph_21'] + report['pph_23'] + report['ppn']}"""
+    st.download_button("Download CSV", data=csv_data, file_name=f"LaporanPajak_{tahun}{f'_{bulan:02d}' if bulan else ''}.csv", mime="text/csv")
 
 # ============================================================
 # PAGE: TUTUP BUKU
 # ============================================================
 
 def page_tutup_buku():
-    st.markdown('<p class=\"main-header\">Tutup Buku</p>', unsafe_allow_html=True)
-    st.markdown('<p class=\"sub-header\">Tutup periode akuntansi bulanan dan tahunan</p>', unsafe_allow_html=True)
+    st.markdown('<p class="main-header">Tutup Buku</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Tutup periode akuntansi bulanan dan tahunan</p>', unsafe_allow_html=True)
     conn = get_connection(); cursor = conn.cursor()
-    tab1, tab2, tab3 = st.tabs([\"Tutup Buku Bulanan\", \"Tutup Buku Tahunan\", \"Status Periode\"])
+    tab1, tab2, tab3 = st.tabs(["Tutup Buku Bulanan", "Tutup Buku Tahunan", "Status Periode"])
     with tab1:
-        st.subheader(\"Tutup Buku Per Bulan\"); st.warning(\"Perhatian: Setelah tutup buku, jurnal untuk periode tersebut tidak dapat diubah!\")
+        st.subheader("Tutup Buku Per Bulan"); st.warning("Perhatian: Setelah tutup buku, jurnal untuk periode tersebut tidak dapat diubah!")
         col1, col2 = st.columns(2)
-        with col1: tutup_tahun = st.selectbox(\"Tahun\", list(range(datetime.now().year, datetime.now().year-5, -1)), key=\"tb_tahun\")
-        with col2: tutup_bulan = st.selectbox(\"Bulan\", list(range(1,13)), format_func=get_month_name, key=\"tb_bulan\")
-        cursor.execute(\"SELECT is_closed FROM periode_akuntansi WHERE tahun = %s AND bulan = %s\", (tutup_tahun, tutup_bulan))
+        with col1: tutup_tahun = st.selectbox("Tahun", list(range(datetime.now().year, datetime.now().year-5, -1)), key="tb_tahun")
+        with col2: tutup_bulan = st.selectbox("Bulan", list(range(1,13)), format_func=get_month_name, key="tb_bulan")
+        cursor.execute("SELECT is_closed FROM periode_akuntansi WHERE tahun = %s AND bulan = %s", (tutup_tahun, tutup_bulan))
         result = cursor.fetchone()
-        if result and result['is_closed'] == 1: st.error(f\"Periode {get_month_name(tutup_bulan)} {tutup_tahun} sudah ditutup!\")
+        if result and result['is_closed'] == 1: st.error(f"Periode {get_month_name(tutup_bulan)} {tutup_tahun} sudah ditutup!")
         else:
-            pendapatan = pd.read_sql_query(\"\"\"\n                SELECT COALESCE(SUM(jd.kredit), 0) as total FROM jurnal_detail jd\n                JOIN jurnal j ON jd.jurnal_id = j.id JOIN akun a ON jd.akun_id = a.id\n                WHERE a.tipe_akun = 'Pendapatan' AND j.is_posted = 1 AND TO_CHAR(j.tanggal,'YYYY-MM') = %s\n            \"\"\", conn, params=[f\"{tutup_tahun}-{tutup_bulan:02d}\"]).iloc[0]['total'] or 0\n            beban = pd.read_sql_query(\"\"\"\n                SELECT COALESCE(SUM(jd.debit), 0) as total FROM jurnal_detail jd\n                JOIN jurnal j ON jd.jurnal_id = j.id JOIN akun a ON jd.akun_id = a.id\n                WHERE a.tipe_akun = 'Beban' AND j.is_posted = 1 AND TO_CHAR(j.tanggal,'YYYY-MM') = %s\n            \"\"\", conn, params=[f\"{tutup_tahun}-{tutup_bulan:02d}\"]).iloc[0]['total'] or 0\n            col1, col2, col3 = st.columns(3)\n            with col1: st.metric(\"Pendapatan\", format_rupiah(pendapatan))\n            with col2: st.metric(\"Beban\", format_rupiah(beban))\n            with col3: st.metric(\"Laba/Rugi\", format_rupiah(pendapatan - beban))\n            if st.button(\"Tutup Buku Bulan Ini\", type=\"primary\"):\n                cursor.execute(\"\"\"\n                    INSERT INTO periode_akuntansi (tahun, bulan, is_closed, closed_at, closed_by)\n                    VALUES (%s, %s, 1, CURRENT_TIMESTAMP, %s)\n                    ON CONFLICT (tahun, bulan) DO UPDATE SET\n                    is_closed = 1, closed_at = CURRENT_TIMESTAMP, closed_by = EXCLUDED.closed_by\n                \"\"\", (tutup_tahun, tutup_bulan, st.session_state.get('username','admin')))\n                conn.commit(); log_activity(\"TUTUP_BUKU\", f\"Tutup buku {get_month_name(tutup_bulan)} {tutup_tahun}\")\n                st.success(f\"Buku periode {get_month_name(tutup_bulan)} {tutup_tahun} berhasil ditutup!\"); st.rerun()\n    with tab2:\n        st.subheader(\"Tutup Buku Per Tahun\"); st.warning(\"Perhatian: Tutup buku tahunan akan menutup seluruh periode dalam tahun tersebut!\")\n        tutup_tahun_th = st.selectbox(\"Tahun\", list(range(datetime.now().year, datetime.now().year-5, -1)), key=\"th_tahun\")\n        cursor.execute(\"SELECT COUNT(*) as cnt FROM periode_akuntansi WHERE tahun = %s AND is_closed = 1\", (tutup_tahun_th,))\n        closed_months = cursor.fetchone()['cnt']\n        st.info(f\"Sudah {closed_months} bulan yang ditutup dari 12 bulan.\")\n        if st.button(\"Tutup Buku Tahun Ini\", type=\"primary\"):\n            for bulan in range(1, 13):\n                cursor.execute(\"\"\"\n                    INSERT INTO periode_akuntansi (tahun, bulan, is_closed, closed_at, closed_by)\n                    VALUES (%s, %s, 1, CURRENT_TIMESTAMP, %s)\n                    ON CONFLICT (tahun, bulan) DO UPDATE SET\n                    is_closed = 1, closed_at = CURRENT_TIMESTAMP, closed_by = EXCLUDED.closed_by\n                \"\"\", (tutup_tahun_th, bulan, st.session_state.get('username','admin')))\n            conn.commit(); log_activity(\"TUTUP_BUKU_TAHUN\", f\"Tutup buku tahun {tutup_tahun_th}\")\n            st.success(f\"Buku tahun {tutup_tahun_th} berhasil ditutup!\"); st.rerun()\n    with tab3:\n        st.subheader(\"Status Periode Akuntansi\")\n        periode_df = pd.read_sql_query(\"SELECT tahun, bulan, is_closed, closed_at, closed_by FROM periode_akuntansi ORDER BY tahun DESC, bulan DESC\", conn)\n        if not periode_df.empty:\n            periode_df['bulan_nama'] = periode_df['bulan'].apply(get_month_name)\n            periode_df['status'] = periode_df['is_closed'].apply(lambda x: 'Tertutup' if x else 'Terbuka')\n            st.dataframe(periode_df[['tahun','bulan_nama','status','closed_at','closed_by']], use_container_width=True, hide_index=True)\n        else: st.info(\"Belum ada periode yang ditutup\")\n    conn.close()
+            pendapatan = pd.read_sql_query("""
+                SELECT COALESCE(SUM(jd.kredit), 0) as total FROM jurnal_detail jd
+                JOIN jurnal j ON jd.jurnal_id = j.id JOIN akun a ON jd.akun_id = a.id
+                WHERE a.tipe_akun = 'Pendapatan' AND j.is_posted = 1 AND TO_CHAR(j.tanggal,'YYYY-MM') = %s
+            """, conn, params=[f"{tutup_tahun}-{tutup_bulan:02d}"]).iloc[0]['total'] or 0
+            beban = pd.read_sql_query("""
+                SELECT COALESCE(SUM(jd.debit), 0) as total FROM jurnal_detail jd
+                JOIN jurnal j ON jd.jurnal_id = j.id JOIN akun a ON jd.akun_id = a.id
+                WHERE a.tipe_akun = 'Beban' AND j.is_posted = 1 AND TO_CHAR(j.tanggal,'YYYY-MM') = %s
+            """, conn, params=[f"{tutup_tahun}-{tutup_bulan:02d}"]).iloc[0]['total'] or 0
+            col1, col2, col3 = st.columns(3)
+            with col1: st.metric("Pendapatan", format_rupiah(pendapatan))
+            with col2: st.metric("Beban", format_rupiah(beban))
+            with col3: st.metric("Laba/Rugi", format_rupiah(pendapatan - beban))
+            if st.button("Tutup Buku Bulan Ini", type="primary"):
+                cursor.execute("""
+                    INSERT INTO periode_akuntansi (tahun, bulan, is_closed, closed_at, closed_by)
+                    VALUES (%s, %s, 1, CURRENT_TIMESTAMP, %s)
+                    ON CONFLICT (tahun, bulan) DO UPDATE SET
+                    is_closed = 1, closed_at = CURRENT_TIMESTAMP, closed_by = EXCLUDED.closed_by
+                """, (tutup_tahun, tutup_bulan, st.session_state.get('username','admin')))
+                conn.commit(); log_activity("TUTUP_BUKU", f"Tutup buku {get_month_name(tutup_bulan)} {tutup_tahun}")
+                st.success(f"Buku periode {get_month_name(tutup_bulan)} {tutup_tahun} berhasil ditutup!"); st.rerun()
+    with tab2:
+        st.subheader("Tutup Buku Per Tahun"); st.warning("Perhatian: Tutup buku tahunan akan menutup seluruh periode dalam tahun tersebut!")
+        tutup_tahun_th = st.selectbox("Tahun", list(range(datetime.now().year, datetime.now().year-5, -1)), key="th_tahun")
+        cursor.execute("SELECT COUNT(*) as cnt FROM periode_akuntansi WHERE tahun = %s AND is_closed = 1", (tutup_tahun_th,))
+        closed_months = cursor.fetchone()['cnt']
+        st.info(f"Sudah {closed_months} bulan yang ditutup dari 12 bulan.")
+        if st.button("Tutup Buku Tahun Ini", type="primary"):
+            for bulan in range(1, 13):
+                cursor.execute("""
+                    INSERT INTO periode_akuntansi (tahun, bulan, is_closed, closed_at, closed_by)
+                    VALUES (%s, %s, 1, CURRENT_TIMESTAMP, %s)
+                    ON CONFLICT (tahun, bulan) DO UPDATE SET
+                    is_closed = 1, closed_at = CURRENT_TIMESTAMP, closed_by = EXCLUDED.closed_by
+                """, (tutup_tahun_th, bulan, st.session_state.get('username','admin')))
+            conn.commit(); log_activity("TUTUP_BUKU_TAHUN", f"Tutup buku tahun {tutup_tahun_th}")
+            st.success(f"Buku tahun {tutup_tahun_th} berhasil ditutup!"); st.rerun()
+    with tab3:
+        st.subheader("Status Periode Akuntansi")
+        periode_df = pd.read_sql_query("SELECT tahun, bulan, is_closed, closed_at, closed_by FROM periode_akuntansi ORDER BY tahun DESC, bulan DESC", conn)
+        if not periode_df.empty:
+            periode_df['bulan_nama'] = periode_df['bulan'].apply(get_month_name)
+            periode_df['status'] = periode_df['is_closed'].apply(lambda x: 'Tertutup' if x else 'Terbuka')
+            st.dataframe(periode_df[['tahun','bulan_nama','status','closed_at','closed_by']], use_container_width=True, hide_index=True)
+        else: st.info("Belum ada periode yang ditutup")
+    conn.close()
 
 # ============================================================
 # PAGE: PENGATURAN
 # ============================================================
 
 def page_pengaturan():
-n    st.markdown('<p class=\"main-header\">Pengaturan</p>', unsafe_allow_html=True)
-n    st.markdown('<p class=\"sub-header\">Konfigurasi aplikasi pembukuan</p>', unsafe_allow_html=True)
-n    tab1, tab2, tab3 = st.tabs([\"Pajak\", \"Data\", \"Tentang\"])
-n    with tab1:
-n        st.subheader(\"Konfigurasi Pajak\")\n        conn = get_connection()\n        pajak_df = pd.read_sql_query(\"SELECT * FROM pajak_config WHERE is_active = 1\", conn)\n        conn.close()\n        if not pajak_df.empty:\n            for _, row in pajak_df.iterrows():\n                with st.form(f\"pajak_{row['id']}\"):\n                    col1, col2 = st.columns(2)\n                    with col1: jenis = st.text_input(\"Jenis Pajak\", value=row['jenis_pajak'], key=f\"jenis_{row['id']}\")\n                    with col2: tarif = st.number_input(\"Tarif (%)\", value=float(row['tarif']), step=0.5, key=f\"tarif_{row['id']}\")\n                    keterangan = st.text_area(\"Keterangan\", value=row['keterangan'] or \"\", key=f\"ket_{row['id']}\")\n                    if st.form_submit_button(\"Update\"):\n                        conn = get_connection(); cursor = conn.cursor()\n                        cursor.execute(\"UPDATE pajak_config SET jenis_pajak=%s, tarif=%s, keterangan=%s WHERE id=%s\", (jenis, tarif, keterangan, row['id']))\n                        conn.commit(); conn.close(); st.success(\"Updated!\"); st.rerun()\n    with tab2:\n        st.subheader(\"Manajemen Data\"); st.warning(\"Hati-hati! Aksi di bawah ini tidak dapat dibatalkan.\")\n        col1, col2 = st.columns(2)\n        with col1:\n            st.markdown(\"**Export Database**\")\n            st.info(\"Untuk backup, gunakan fitur Export di dashboard Supabase.\")\n        with col2:\n            st.markdown(\"**Reset Data**\")\n            if st.checkbox(\"Saya mengerti risiko reset data\"):\n                if st.button(\"Reset Semua Data\", type=\"primary\"):\n                    conn = get_connection(); cursor = conn.cursor()\n                    cursor.execute(\"DELETE FROM jurnal_detail\")\n                    cursor.execute(\"DELETE FROM jurnal\")\n                    cursor.execute(\"DELETE FROM invoice_item\")\n                    cursor.execute(\"DELETE FROM invoice\")\n                    cursor.execute(\"DELETE FROM periode_akuntansi\")\n                    cursor.execute(\"DELETE FROM log_aktivitas\")\n                    conn.commit(); conn.close()\n                    st.success(\"Semua data transaksi telah dihapus!\"); st.rerun()\n    with tab3:\n        st.subheader(\"Tentang Aplikasi\")\n        logo_path = os.path.join(os.path.dirname(__file__), \"logo_ceritajiwa.png\")\n        if os.path.exists(logo_path): st.image(logo_path, width=120)\n        st.markdown(\"\"\"\n        **Cerita Jiwa - Sistem Pembukuan Internal**\n\n        Versi: 1.0 (Supabase Edition)\n\n        **Brand Guidelines:**\n        - Warna Utama: #344A61 (Navy Blue)\n        - Warna Sekunder: #D9DBDC, #6D6F71\n        - Font: Avenir Next Bold\n\n        **Fitur:**\n        - AI Jurnal Assistant\n        - Chart of Accounts yang dapat dikustomisasi\n        - Jurnal Umum & Buku Besar\n        - Invoice Generator dengan PDF\n        - Laporan Keuangan (Neraca & Laba Rugi)\n        - Laporan Pajak\n        - Tutup Buku Bulanan & Tahunan\n\n        **Database:** PostgreSQL via Supabase\n\n        Dibuat untuk: **Cerita Jiwa** (Training & Produk Digital)\n        \"\"\")\n\n# ============================================================\n# MAIN APP\n# ============================================================\n\ndef main():\n    set_page_config(); apply_custom_css(); init_database()\n    if 'username' not in st.session_state: st.session_state.username = 'admin'\n    menu = render_sidebar()\n    if menu == \"🏠 Dashboard\": page_dashboard()\n    elif menu == \"📋 Daftar Akun\": page_chart_of_accounts()\n    elif menu == \"🤖 AI Jurnal Assistant\": page_ai_journal()\n    elif menu == \"📝 Jurnal Umum\": page_jurnal_umum()\n    elif menu == \"📖 Buku Besar\": page_buku_besar()\n    elif menu == \"📄 Invoice\": page_invoice()\n    elif menu == \"📊 Laporan Keuangan\": page_laporan_keuangan()\n    elif menu == \"💰 Laporan Pajak\": page_laporan_pajak()\n    elif menu == \"🔒 Tutup Buku\": page_tutup_buku()\n    elif menu == \"⚙️ Pengaturan\": page_pengaturan()\n\nif __name__ == \"__main__\":\n    main()\n```
+    st.markdown('<p class="main-header">Pengaturan</p>', unsafe_allow_html=True)
+    st.markdown('<p class="sub-header">Konfigurasi aplikasi pembukuan</p>', unsafe_allow_html=True)
+    tab1, tab2, tab3 = st.tabs(["Pajak", "Data", "Tentang"])
+    with tab1:
+        st.subheader("Konfigurasi Pajak")
+        conn = get_connection()
+        pajak_df = pd.read_sql_query("SELECT * FROM pajak_config WHERE is_active = 1", conn)
+        conn.close()
+        if not pajak_df.empty:
+            for _, row in pajak_df.iterrows():
+                with st.form(f"pajak_{row['id']}"):
+                    col1, col2 = st.columns(2)
+                    with col1: jenis = st.text_input("Jenis Pajak", value=row['jenis_pajak'], key=f"jenis_{row['id']}")
+                    with col2: tarif = st.number_input("Tarif (%)", value=float(row['tarif']), step=0.5, key=f"tarif_{row['id']}")
+                    keterangan = st.text_area("Keterangan", value=row['keterangan'] or "", key=f"ket_{row['id']}")
+                    if st.form_submit_button("Update"):
+                        conn = get_connection(); cursor = conn.cursor()
+                        cursor.execute("UPDATE pajak_config SET jenis_pajak=%s, tarif=%s, keterangan=%s WHERE id=%s", (jenis, tarif, keterangan, row['id']))
+                        conn.commit(); conn.close(); st.success("Updated!"); st.rerun()
+    with tab2:
+        st.subheader("Manajemen Data"); st.warning("Hati-hati! Aksi di bawah ini tidak dapat dibatalkan.")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Export Database**")
+            st.info("Untuk backup, gunakan fitur Export di dashboard Supabase.")
+        with col2:
+            st.markdown("**Reset Data**")
+            if st.checkbox("Saya mengerti risiko reset data"):
+                if st.button("Reset Semua Data", type="primary"):
+                    conn = get_connection(); cursor = conn.cursor()
+                    cursor.execute("DELETE FROM jurnal_detail")
+                    cursor.execute("DELETE FROM jurnal")
+                    cursor.execute("DELETE FROM invoice_item")
+                    cursor.execute("DELETE FROM invoice")
+                    cursor.execute("DELETE FROM periode_akuntansi")
+                    cursor.execute("DELETE FROM log_aktivitas")
+                    conn.commit(); conn.close()
+                    st.success("Semua data transaksi telah dihapus!"); st.rerun()
+    with tab3:
+        st.subheader("Tentang Aplikasi")
+        logo_path = os.path.join(os.path.dirname(__file__), "logo_ceritajiwa.png")
+        if os.path.exists(logo_path): st.image(logo_path, width=120)
+        st.markdown("""
+        **Cerita Jiwa - Sistem Pembukuan Internal**
 
----
+        Versi: 1.0 (Supabase Edition)
 
-## ⚠️ PERHATIAN PENTING
+        **Brand Guidelines:**
+        - Warna Utama: #344A61 (Navy Blue)
+        - Warna Sekunder: #D9DBDC, #6D6F71
+        - Font: Avenir Next Bold
 
-1. **Di BLOK 7**, ada baris yang diawali `n    ` (dengan huruf `n` di depan) — itu adalah typo dari proses copy. **Hapus semua `n` di awal baris** pada fungsi `page_pengaturan()`. Contoh:
-   - `n    st.markdown(...)` → `    st.markdown(...)`
-   - `n    tab1, tab2, tab3 = ...` → `    tab1, tab2, tab3 = ...`
+        **Fitur:**
+        - AI Jurnal Assistant
+        - Chart of Accounts yang dapat dikustomisasi
+        - Jurnal Umum & Buku Besar
+        - Invoice Generator dengan PDF
+        - Laporan Keuangan (Neraca & Laba Rugi)
+        - Laporan Pajak
+        - Tutup Buku Bulanan & Tahunan
 
-2. **File `requirements.txt`** harus berisi 4 baris:          
+        **Database:** PostgreSQL via Supabase
+
+        Dibuat untuk: **Cerita Jiwa** (Training & Produk Digital)
+        """)
+
+# ============================================================
+# MAIN APP
+# ============================================================
+
+def main():
+    set_page_config(); apply_custom_css(); init_database()
+    if 'username' not in st.session_state: st.session_state.username = 'admin'
+    menu = render_sidebar()
+    if menu == "🏠 Dashboard": page_dashboard()
+    elif menu == "📋 Daftar Akun": page_chart_of_accounts()
+    elif menu == "🤖 AI Jurnal Assistant": page_ai_journal()
+    elif menu == "📝 Jurnal Umum": page_jurnal_umum()
+    elif menu == "📖 Buku Besar": page_buku_besar()
+    elif menu == "📄 Invoice": page_invoice()
+    elif menu == "📊 Laporan Keuangan": page_laporan_keuangan()
+    elif menu == "💰 Laporan Pajak": page_laporan_pajak()
+    elif menu == "🔒 Tutup Buku": page_tutup_buku()
+    elif menu == "⚙️ Pengaturan": page_pengaturan()
+
+if __name__ == "__main__":
+    main()
